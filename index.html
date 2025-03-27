@@ -1,0 +1,64 @@
+import requests
+from bs4 import BeautifulSoup
+import json
+
+# 1. Seznam hlavních realitních serverů
+SERVERS = [
+    "https://www.reality.cz",
+    "https://www.bezrealitky.cz",
+    "https://www.realingo.cz",
+    "https://www.sreality.cz"
+]
+
+def get_olomouc_properties():
+    properties = []
+    
+    # 2. Prohledávání jednotlivých serverů
+    for server in SERVERS:
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(f"{server}/vyhledat/olomouc", headers=headers)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # 3. Extrakce dat podle struktury každého serveru
+            if "reality.cz" in server:
+                items = soup.find_all('div', class_='property')
+                for item in items:
+                    props = {
+                        'title': item.find('h2').text.strip(),
+                        'price': item.find('span', class_='price').text,
+                        'location': 'Olomouc',
+                        'link': item.find('a')['href'],
+                        'server': server
+                    }
+                    properties.append(props)
+            
+            elif "bezrealitky.cz" in server:
+                # API přístup pro Bezrealitky
+                api_url = f"{server}/api/v1/listings?location=Olomouc"
+                data = requests.get(api_url).json()
+                for item in data['listings']:
+                    properties.append({
+                        'title': item['title'],
+                        'price': item['price'],
+                        'size': item['squareMeters'],
+                        'link': item['url'],
+                        'server': server
+                    })
+            
+            # ... další servery
+
+        except Exception as e:
+            print(f"Chyba při zpracování {server}: {str(e)}")
+    
+    return properties
+
+# 4. Spuštění a výpis výsledků
+if __name__ == "__main__":
+    results = get_olomouc_properties()
+    print(f"Našeno {len(results)} nemovitostí:")
+    for prop in results:
+        print(f"## {prop['title']}")
+        print(f"- Cena: {prop.get('price', 'Neuvedeno')}")
+        print(f"- Lokalita: {prop.get('location', 'Olomouc a okolí')}")
+        print(f"- Odkaz: {prop['link']}\n")
